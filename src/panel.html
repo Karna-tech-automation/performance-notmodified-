@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Perf-Trace-Pulse</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Inter, -apple-system, sans-serif;
+    background: #0f1419; color: #e6edf3; font-size: 13px;
+    padding: 16px; min-width: 340px;
+  }
+  .header { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .header-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: #1a1f2e; padding: 2px;
+    object-fit: contain;
+    display: block;
+  }
+  h1 { font-size: 16px; }
+  .tagline {
+    font-size: 11px; color: #8b95a5; line-height: 1.4;
+    margin-bottom: 16px;
+  }
+  .status {
+    display: inline-block; padding: 3px 10px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; margin-bottom: 12px;
+  }
+  .status-idle { background: #2a3142; color: #8b95a5; }
+  .status-recording { background: #7f1d1d; color: #fca5a5; }
+  .status-reloading { background: #78350f; color: #fcd34d; }
+  .btn {
+    width: 100%; padding: 10px; border: none; border-radius: 4px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    margin-bottom: 8px; font-family: inherit;
+  }
+  .btn-record { background: #4f8ef7; color: #fff; }
+  .btn-record:hover { background: #3b7be0; }
+  .btn-stop { background: #ef4444; color: #fff; }
+  .btn-stop:hover { background: #dc2626; }
+  .btn-secondary { background: #1a1f2e; color: #e6edf3; border: 1px solid #2a3142; }
+  .btn-secondary:hover { background: #2a3142; }
+  .btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
+  .live-stats {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    margin: 12px 0;
+  }
+  .stat-card {
+    background: #1a1f2e; border-radius: 6px; padding: 10px; text-align: center;
+  }
+  .stat-value {
+    font-size: 20px; font-weight: 700; color: #4f8ef7;
+    font-family: ui-monospace, monospace;
+  }
+  .stat-label {
+    font-size: 10px; color: #8b95a5;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  input[type="text"] {
+    width: 100%; padding: 8px 10px; background: #1a1f2e;
+    border: 1px solid #2a3142; border-radius: 4px;
+    color: #e6edf3; font-family: inherit; font-size: 13px;
+    margin-bottom: 12px;
+  }
+  input[type="text"]:focus { outline: none; border-color: #4f8ef7; }
+  .log {
+    background: #0a0e14; border-radius: 4px; padding: 8px;
+    font-family: ui-monospace, monospace; font-size: 11px;
+    max-height: 180px; overflow-y: auto; margin-top: 12px;
+  }
+  .log-entry { padding: 2px 0; border-bottom: 1px solid #1a1f2e; }
+  .log-entry:last-child { border-bottom: none; }
+  .hidden { display: none !important; }
+  .section-title {
+    font-size: 11px; color: #8b95a5; text-transform: uppercase;
+    letter-spacing: 0.5px; margin: 16px 0 8px;
+  }
+
+  /* Modal */
+  .modal {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .modal.hidden { display: none; }
+  .modal-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+  }
+  .modal-dialog {
+    position: relative;
+    background: #1a1f2e;
+    border: 1px solid #2a3142;
+    border-radius: 8px;
+    padding: 20px;
+    width: 100%;
+    max-width: 320px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  }
+  .modal-dialog h3 {
+    font-size: 14px; margin-bottom: 8px; color: #e6edf3;
+  }
+  .modal-dialog p {
+    font-size: 12px; color: #8b95a5; margin-bottom: 12px; line-height: 1.5;
+  }
+  .modal-dialog code {
+    color: #4f8ef7; font-family: ui-monospace, monospace;
+    background: #0a0e14; padding: 1px 5px; border-radius: 3px;
+  }
+  .modal-actions {
+    display: flex; gap: 8px; margin-top: 12px;
+  }
+  .modal-actions .btn {
+    margin-bottom: 0; flex: 1;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <img class="header-icon" src="../icons/icon48.png" alt="Perf-Trace-Pulse" />
+    <h1>Perf-Trace-Pulse</h1>
+  </div>
+  <div class="tagline">
+    An open-source-inspired browser performance recorder that captures web performance metrics, analyzes traces, and generates downloadable reports.
+  </div>
+
+  <div id="statusBadge" class="status status-idle">Idle</div>
+
+  <input type="text" id="recordingName" placeholder="Recording name (optional)" />
+
+  <button id="recordBtn" class="btn btn-record">Start Recording</button>
+  <button id="downloadZipBtn" class="btn btn-secondary hidden">📦 Download Report (.zip)</button>
+
+  <div id="liveStats" class="live-stats hidden">
+    <div class="stat-card">
+      <div class="stat-value" id="statDuration">00:00</div>
+      <div class="stat-label">Duration</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="statActions">0</div>
+      <div class="stat-label">Actions</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="statRequests">0</div>
+      <div class="stat-label">Requests</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="statErrors">0</div>
+      <div class="stat-label">Errors</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="statShots">0</div>
+      <div class="stat-label">Screenshots</div>
+    </div>
+  </div>
+
+  <div class="section-title">Recording Log</div>
+  <div id="output" class="log">
+    <div class="log-entry">Ready to record.</div>
+  </div>
+
+  <!-- Name prompt modal -->
+  <div id="nameModal" class="modal hidden">
+    <div class="modal-backdrop" id="nameModalBackdrop"></div>
+    <div class="modal-dialog">
+      <h3>Name your report</h3>
+      <p>You didn't give a name at the start. Enter one now — the ZIP will be saved as <code>{name}.zip</code>.</p>
+      <input type="text" id="nameModalInput" placeholder="perf-report" maxlength="60" />
+      <div class="modal-actions">
+        <button id="nameModalCancel" class="btn btn-secondary" type="button">Cancel</button>
+        <button id="nameModalOk" class="btn btn-record" type="button">Download</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="jszip.min.js"></script>
+  <script src="zipBuilder.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>
